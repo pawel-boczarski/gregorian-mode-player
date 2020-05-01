@@ -1,16 +1,18 @@
 // BUGS:
 // pause to be added!
 // the length of double notes!
+// space gaps after double notes!
 
 
 // punctum (eg. "fa") - done
 // pes (eg. "fa"-"sol") - done
 // clivis (eg. "sol"-"fa") - done
 
-// torculus
-// porrectus - the very end, hard to draw...
-// climacus - implemented other way round...
-// scandicus - todo
+// torculus (the middle note is the highest)
+// porrectus (the middle note is the lowest) - improve
+// climacus - implemented other way round... fix the *** notes!
+// scandicus - done
+// additional line for above/below!
 
 var currentTimeout = 0;
 var soundLength = 400;
@@ -70,6 +72,7 @@ var noteWidth = 10;
 var punctumWidth = 6;
 var virgaWidth = 2;
 var virgaHeight = 14;
+var porrectusLength = 30;
 var linkWidth = 2;
 var noteGap = 5;
 var scoreMargin = 20;
@@ -89,12 +92,12 @@ function drawLines() {
 		canvCtx.stroke();
 		canvCtx.stroke();
 	}
-	
+	canvCtx.closePath();
 	//drawKey('C', 3);
 }
 
-var altitudeBase = {'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
-var altitude = {'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
+var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
+var altitude = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
 var lastDrawnNote;
 
 function drawSingleNote(name) {
@@ -135,12 +138,26 @@ function drawPunctum() {
 	notePosition += (punctumWidth/2 + virgaWidth);
 }
 
-// todo change to "drawPodatus"
 function connectNotes(higher, lower) {
 	deepen_higher = altitude[higher];
 	deepen_lower = altitude[lower];
 	canvCtx.fillRect(notePosition + noteWidth - virgaWidth, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
 }
+
+function connectNotesWithPorrectus(higher, lower) {
+	deepen_higher = altitude[higher];
+	deepen_lower = altitude[lower];
+	//canvCtx.fillRect(notePosition + noteWidth - virgaWidth, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
+	canvCtx.beginPath();
+	canvCtx.moveTo(notePosition, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT)  - noteHeight/2);
+	canvCtx.lineTo(notePosition + porrectusLength, CANV_MARGIN_TOP + deepen_lower*(CANV_LINE_HEIGHT) - noteHeight/2);
+	canvCtx.lineTo(notePosition + porrectusLength, CANV_MARGIN_TOP + deepen_lower*(CANV_LINE_HEIGHT) + noteHeight/2);
+	canvCtx.lineTo(notePosition, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT)  + noteHeight/2);
+	canvCtx.closePath();
+	canvCtx.fill();
+	notePosition += porrectusLength - noteWidth;
+}
+
 
 function drawNote(name) {
 	if(name == '*') {
@@ -150,16 +167,38 @@ function drawNote(name) {
 		notePosition += (noteWidth + noteGap);
 	} else {
 		subnotes = name.split('-');
+		switch(subnotes.length) {
+		case 3:
+		//	break;
+		// if(porrectus) {
+		// break;
+		// }
+		case 2:
+		
+		default: // this is just application of "pes" and "clivis" rules - not cannonical, but understandable
 		for(var i = 0; i < subnotes.length; i++) {
-			drawSingleNote(subnotes[i]);
+			//drawSingleNote(subnotes[i]);
 			if(i+1 < subnotes.length) {
 				if(altitude[subnotes[i+1]] > altitude[subnotes[i]]) {
-					drawVirga(subnotes[i]);
-					notePosition += noteWidth;
-				} else {
+					if(i == 0) drawVirga(subnotes[i]);
+					if(i == 0 && subnotes.length > 2 && altitude[subnotes[i+2]] < altitude[subnotes[i+1]])
+						connectNotesWithPorrectus(subnotes[i], subnotes[i+1]);
+					else {
+						drawSingleNote(subnotes[i]);
+						connectNotes(subnotes[i+1], subnotes[i]);
+					}
+					notePosition += (noteWidth - virgaWidth);
+				} else if(i < subnotes.length - 2) {
+						drawSingleNote(subnotes[i]);
+					connectNotes(subnotes[i+1], subnotes[i]);
+					notePosition += (noteWidth - virgaWidth);
+			    } else {
+						drawSingleNote(subnotes[i]);
 					connectNotes(subnotes[i], subnotes[i+1]);
 				}
-			}
+			} else 
+				drawSingleNote(subnotes[i]);
+		}
 		}
 		notePosition += (noteWidth + noteGap);
 	}
@@ -243,6 +282,7 @@ console.log('javascript ...');
 				 }
 	// C4 is the default key
 	modes={
+		  // 'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
 		   'I a': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol * * * ",
 		   'I b': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol",
 		   'I c': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol la",
