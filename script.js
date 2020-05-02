@@ -69,11 +69,14 @@ function playNote(name) {
 var notesDrawn = 0;
 var noteHeight = 6;
 var noteWidth = 10;
+var additionalLineWidth = 16;
 var punctumWidth = 6;
 var virgaWidth = 2;
 var virgaHeight = 14;
 var porrectusLength = 30;
 var linkWidth = 2;
+var pauseGap = 15;
+var pauseWidth = 1;
 var noteGap = 5;
 var scoreMargin = 20;
 var notePosition = 0;
@@ -104,6 +107,9 @@ function drawSingleNote(name) {
 	deepen = altitude[name];
 	
 	canvCtx.fillRect(notePosition, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
+	if(deepen < -0.5 || deepen > 3.5) {
+	canvCtx.fillRect(notePosition - (additionalLineWidth - noteWidth) / 2, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
+	}
 	notesDrawn++;
 	lastDrawnNote = name;
 	lastWasPunctum = false;
@@ -158,8 +164,15 @@ function connectNotesWithPorrectus(higher, lower) {
 	notePosition += porrectusLength - noteWidth;
 }
 
+function drawPause() {
+	canvCtx.fillRect(notePosition + pauseGap, CANV_MARGIN_TOP, virgaWidth, 3 * CANV_LINE_HEIGHT, pauseWidth);
+}
 
 function drawNote(name) {
+	if(name == '|') {
+		drawPause();
+		notePosition += (pauseGap + pauseWidth);
+	}
 	if(name == '*') {
 		drawPunctum();
 	} else if(!name.includes('-')) {
@@ -283,19 +296,19 @@ console.log('javascript ...');
 	// C4 is the default key
 	modes={
 		  // 'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
-		   'I a': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol * * * ",
-		   'I b': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol",
-		   'I c': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol la",
-		   'III': "sol la-DO DO DO DO DO DO DO si si | DO DO DO DO DO DO DO RE DO SI DO | DO DO DO DO-si la-si la sol-la",
-		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la",
-		   'VIIa': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la",
-		   'VIIb': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE",
-		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re",
-		   'IVa': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi",
-		   'IVb': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la",
-		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la si la sol la | la la la la la la la fa-la sol fa",
-		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol",
-		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO"
+		   'I a': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol * * * |",
+		   'I b': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol |",
+		   'I c': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol la |",
+		   'III': "sol la-DO DO DO DO DO DO DO si si | DO DO DO DO DO DO DO RE DO si DO | DO DO DO DO-si la-si la sol-la |",
+		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
+		   'VIIa': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
+		   'VIIb': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
+		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re |",
+		   'IVa': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi |",
+		   'IVb': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la |",
+		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la si la sol la | la la la la la la la fa-la sol fa |",
+		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
+		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
 		   };
 		   
 	
