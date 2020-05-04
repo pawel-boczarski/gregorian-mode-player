@@ -12,7 +12,9 @@
 // porrectus (the middle note is the lowest) - improve
 // climacus - implemented other way round... fix the *** notes!
 // scandicus - done
-// additional line for above/below!
+
+// todo don't draw second bemol in phrase , distinguish phrase and simple pause
+// http://www.lphrc.org/Chant/ - todo implement all notes
 
 var currentTimeout = 0;
 var soundLength = 400;
@@ -81,6 +83,10 @@ var noteGap = 5;
 var scoreMargin = 20;
 var notePosition = 0;
 
+var bemolAdvance = 10;
+
+var bemolStartRelativeFourthLine = -5;
+
 function initCanvas() {
 	canv = document.getElementById('canv')
 	canvCtx = canv.getContext('2d');
@@ -99,11 +105,31 @@ function drawLines() {
 	//drawKey('C', 3);
 }
 
-var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
-var altitude = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
+var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
+var altitude = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
 var lastDrawnNote;
 
+// todo don't draw second bemol in phrase
+function drawBemol() {
+	var bemolStrokes = [[0,10], [5, 3], [0, -3], [-5, -3]];
+	
+	canvCtx.beginPath();
+	var pt = [notePosition, CANV_MARGIN_TOP + bemolStartRelativeFourthLine];
+	canvCtx.moveTo(pt[0], pt[1]);
+	for(var i = 0; i < bemolStrokes.length; i++) {
+		pt[0] += bemolStrokes[i][0]; pt[1] += bemolStrokes[i][1];
+		canvCtx.lineTo(pt[0], pt[1]);
+	}
+	canvCtx.closePath();
+	canvCtx.stroke();
+	canvCtx.stroke(); // for the slanted line to be bolder, improve this
+
+	notePosition += bemolAdvance;
+}
+
 function drawSingleNote(name) {
+	if(name == 'sa')
+		drawBemol();
 	deepen = altitude[name];
 	
 	canvCtx.fillRect(notePosition, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
@@ -287,6 +313,7 @@ console.log('javascript ...');
 				 'fa' : 349,
 				 'sol' : 392,
 				 'la' : 440,
+				 'sa': 466,
 				 'si': 494,
 				 'DO' : 523,
 				 'RE' : 587,
@@ -296,17 +323,18 @@ console.log('javascript ...');
 	// C4 is the default key
 	modes={
 		  // 'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
-		   'I a': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol * * * |",
-		   'I b': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol-la sol |",
-		   'I c': "fa sol-la la la la la la la sol sol | la la la la la si la sol la | la la la la sol fa sol la |",
-		   'III': "sol la-DO DO DO DO DO DO DO si si | DO DO DO DO DO DO DO RE DO si DO | DO DO DO DO-si la-si la sol-la |",
+		   'I a': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol * * * |",
+		   'I b': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol |",
+		   'I c': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol la |",
+		   'III a': "sol la-DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO si DO | DO DO DO DO-si la-si la sol-la |",
+		   'III b': "sol la-DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO si DO | DO DO DO la DO si-la |",
 		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
-		   'VIIa': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
-		   'VIIb': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
+		   'VII a': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
+		   'VII b': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
 		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re |",
-		   'IVa': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi |",
-		   'IVb': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la |",
-		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la si la sol la | la la la la la la la fa-la sol fa |",
+		   'IV a': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi |",
+		   'IV b': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la |",
+		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la sa la sol la | la la la la la la la fa fa-la sol fa |",
 		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
 		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
 		   };
