@@ -322,19 +322,19 @@ console.log('javascript ...');
 				 }
 	// C4 is the default key
 	modes={
-		  // 'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
+		   //'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
 		   'I a': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol * * * |",
 		   'I b': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol |",
 		   'I c': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol la |",
+		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re |",
 		   'III a': "sol la-DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO si DO | DO DO DO DO-si la-si la sol-la |",
 		   'III b': "sol la-DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO si DO | DO DO DO la DO si-la |",
-		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
-		   'VII a': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
-		   'VII b': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
-		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re |",
 		   'IV a': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi |",
 		   'IV b': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la |",
+		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
 		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la sa la sol la | la la la la la la la fa fa-la sol fa |",
+		   'VII a': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
+		   'VII b': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
 		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
 		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
 		   };
