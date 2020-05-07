@@ -2,6 +2,8 @@
 // pause to be added!
 // the length of double notes!
 // space gaps after double notes!
+// P1 !!!! bemol in compound notes!
+// lowered notes!
 
 
 // punctum (eg. "fa") - done
@@ -146,9 +148,8 @@ function drawBemol() {
 	notePosition += bemolAdvance;
 }
 
+// for now let's say 'sa' is not a single note ;)
 function drawSingleNote(name) {
-	if(name == 'sa')
-		drawBemol();
 	deepen = altitude[name];
 	
 	canvCtx.save();
@@ -232,6 +233,8 @@ function drawPause() {
 
 // maybe the canvas translation functions should be here?
 function drawNote(name) {
+	if(name.includes('sa'))
+		drawBemol(); // todo still need to implement the one-bemol-in-phrase rule
 	if(name == '|') {
 		drawPause();
 		notePosition += (pauseGap + pauseWidth);
@@ -361,6 +364,101 @@ function onKeyChangeClicked(name) {
 	score.value = notes.join(' ');
 }
 
+function generateTests() {
+	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
+	var modes = {};
+	
+	// single notes test
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += singleNotes[i];
+	}
+	modes["single notes test"] = line;
+
+    // bistropha test
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += (singleNotes[i] + '-' + singleNotes[i]);
+	}
+	modes["bistropha test"] = line;
+	
+	// tristropha test
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += (singleNotes[i] + '-' + singleNotes[i] + '-' + singleNotes[i]);
+	}
+	modes["tristropha test"] = line;
+	
+	// podatus test
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' | ';
+		for(var j = i+1; j < singleNotes.length; j++) {
+			if(j != 0) line += ' ';			
+			line += (singleNotes[i] + '-' + singleNotes[j]);
+		}
+	}
+	modes["podatus test"] = line;
+	
+	// podatus test
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' | ';
+		for(var j = i+1; j < singleNotes.length; j++) {
+			if(j != 0) line += ' ';			
+			line += (singleNotes[j] + '-' + singleNotes[i]);
+		}
+	}
+	modes["clivis test"] = line;
+	
+	singleNotes = ['fa', 'sol', 'la', 'sa', 'DO'];
+	line = "";
+	// some scandici test
+	for(var i = 0; i < singleNotes.length; i++) {
+		for(var j = i+1; j < singleNotes.length; j++) {
+				if(j != i+1) line += ' ';
+			for(var k = j+1; k < singleNotes.length; k++) {
+				if(k != j+1) line += ' ';
+				line += (singleNotes[i] + '-' + singleNotes[j] + '-' + singleNotes[k]);
+			}
+		}
+	}
+	
+	modes["some scandici test"] = line;
+	line = "";
+	// some torculi test
+	for(var i = 0; i < singleNotes.length; i++) {
+		for(var j = i; j < singleNotes.length; j++) {
+				if(j != i) line += ' ';
+			for(var k = j+1; k < singleNotes.length; k++) {
+				if(k != j+1) line += ' ';
+				line += (singleNotes[i] + '-' + singleNotes[k] + '-' + singleNotes[j]);
+			}
+		}
+	}
+	
+	modes["some torculi test"] = line;
+	line = "";
+	// some porrecti test
+	for(var i = 0; i < singleNotes.length; i++) {
+		for(var j = i+1; j < singleNotes.length; j++) {
+				if(j != i+1) line += ' ';
+			for(var k = j; k < singleNotes.length; k++) {
+				line += ' ';
+				line += (singleNotes[j] + '-' + singleNotes[i] + '-' + singleNotes[k]);
+			}
+		}
+	}
+	
+	modes["some porrecti test"] = line;
+	line = "";
+
+	return modes;
+}
+
 function load() {
 console.log('javascript ...');
     frequencies={'do' : 261,
@@ -393,7 +491,10 @@ console.log('javascript ...');
 		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
 		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
 		   };
-		   
+		
+		if(window.location.href.includes('user=OPs&password=panskipies')) { // ;-)
+			modes = generateTests();
+		}
 	
 	audioCtx = new (window.AudioContext || window.webkitAudioContext);
 	sine = audioCtx.createOscillator();
@@ -425,6 +526,6 @@ console.log('javascript ...');
 
 	initCanvas();
 	drawLines();
-	document.getElementById('score').value = modes['I a']; onDraw();
+	document.getElementById('mode').onchange(); onDraw();
 	setInterval(onDraw, 5000);
 }
