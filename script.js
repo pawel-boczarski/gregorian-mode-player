@@ -16,20 +16,20 @@
 // todo don't draw second bemol in phrase , distinguish phrase and simple pause
 // http://www.lphrc.org/Chant/ - todo implement all notes
 
+// multiline!
+
+
+
 var currentTimeout = 0;
 var soundLength = 400;
 var soundGap = 100;
-var CANV_MARGIN_TOP=100;
-var CANV_LINE_HEIGHT = 14;
-var canv;
-var canvCtx;
 
 function playSingleNote(name, length, gap) {
 	if(!(name in frequencies) && name != '|') return;
 	
 	setTimeout(
 		function() {
-			var gain_values = [ 1.0, 0.5, 0.9, 0.3, 0.1, 0.1, 0.05 ];
+			var gain_values = [ 1.0, 0.5, 0.8, 0.3, 0.1, 0.1, 0.05 ];
 			console.log('no gain');
 			var sines = [];
 			var gains = [];
@@ -37,6 +37,8 @@ function playSingleNote(name, length, gap) {
 				sines[i] = audioCtx.createOscillator();
 				gains[i] = audioCtx.createGain();
 				gains[i].gain.value = gain_values[i];
+				//gains[i].gain.setValueAtTime(gain_values[i], audioCtx.currentTime);
+				//gains[i].gain.linearRampToValueAtTime(0.3 * gain_values[i], audioCtx.currentTime + soundLength);
 				sines[i].connect(gains[i]).connect(audioCtx.destination);
 				sines[i].frequency.value = frequencies[name] * (i+1);
 			}
@@ -68,6 +70,13 @@ function playNote(name) {
 	lastScheduledNote = name;
 }
 
+// todo away with globals
+var CANV_MARGIN_TOP=100;
+var CANV_LINE_HEIGHT = 14;
+var INTER_LINE_GAP = 100;
+var canv;
+var canvCtx;
+
 var notesDrawn = 0;
 var noteHeight = 6;
 var noteWidth = 10;
@@ -76,10 +85,11 @@ var punctumWidth = 6;
 var virgaWidth = 2;
 var virgaHeight = 14;
 var porrectusLength = 30;
+var bistrophaSpace = 3;
 var linkWidth = 2;
 var pauseGap = 15;
 var pauseWidth = 1;
-var noteGap = 5;
+var noteGap = 10;
 var scoreMargin = 20;
 var notePosition = 0;
 
@@ -87,22 +97,27 @@ var bemolAdvance = 10;
 
 var bemolStartRelativeFourthLine = -5;
 
+var linePositionThreshold = 750;
+
+
 function initCanvas() {
 	canv = document.getElementById('canv')
 	canvCtx = canv.getContext('2d');
 }
 
+// todo multiline support
 function drawLines() {
-	canvCtx.clearRect(0, 0, 800, 600);
 	canvCtx.beginPath();
 	for(var i = 0; i < 4; i++) {
-		canvCtx.moveTo(10, CANV_LINE_HEIGHT*i + CANV_MARGIN_TOP);
-		canvCtx.lineTo(800, CANV_LINE_HEIGHT*i + CANV_MARGIN_TOP);
+		canvCtx.save();
+		canvCtx.translate(0, CANV_LINE_HEIGHT*i + CANV_MARGIN_TOP);
+		canvCtx.moveTo(10, 0);
+		canvCtx.lineTo(800, 0);
 		canvCtx.stroke();
 		canvCtx.stroke();
+		canvCtx.restore();
 	}
 	canvCtx.closePath();
-	//drawKey('C', 3);
 }
 
 var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
@@ -113,8 +128,10 @@ var lastDrawnNote;
 function drawBemol() {
 	var bemolStrokes = [[0,10], [5, 3], [0, -3], [-5, -3]];
 	
+	canvCtx.save();
 	canvCtx.beginPath();
-	var pt = [notePosition, CANV_MARGIN_TOP + bemolStartRelativeFourthLine];
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	var pt = [0, bemolStartRelativeFourthLine];
 	canvCtx.moveTo(pt[0], pt[1]);
 	for(var i = 0; i < bemolStrokes.length; i++) {
 		pt[0] += bemolStrokes[i][0]; pt[1] += bemolStrokes[i][1];
@@ -123,7 +140,9 @@ function drawBemol() {
 	canvCtx.closePath();
 	canvCtx.stroke();
 	canvCtx.stroke(); // for the slanted line to be bolder, improve this
+	canvCtx.restore();
 
+    // todo should it be here?
 	notePosition += bemolAdvance;
 }
 
@@ -132,10 +151,13 @@ function drawSingleNote(name) {
 		drawBemol();
 	deepen = altitude[name];
 	
-	canvCtx.fillRect(notePosition, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
 	if(deepen < -0.5 || deepen > 3.5) {
-	canvCtx.fillRect(notePosition - (additionalLineWidth - noteWidth) / 2, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
+	canvCtx.fillRect(-(additionalLineWidth - noteWidth) / 2, deepen*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
 	}
+	canvCtx.restore();
 	notesDrawn++;
 	lastDrawnNote = name;
 	lastWasPunctum = false;
@@ -143,7 +165,10 @@ function drawSingleNote(name) {
 
 function drawVirga(name) {
 	deepen = altitude[name];
-	canvCtx.fillRect(notePosition, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
+	canvCtx.restore();
 }
 
 var lastWasPunctum = false; // todo - the puncti treated differently...
@@ -157,13 +182,16 @@ function drawPunctum() {
 
 	deepen = altitude[name];
 
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
 	canvCtx.beginPath();
-	canvCtx.moveTo(notePosition, CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT));
-	canvCtx.lineTo(notePosition + 0.7 * punctumWidth, - 0.7 * punctumWidth + CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT));
-	canvCtx.lineTo(notePosition + 2*0.7 * punctumWidth, 0 + CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT));
-	canvCtx.lineTo(notePosition + 0.7 * punctumWidth, + 0.7 * punctumWidth + CANV_MARGIN_TOP + deepen*(CANV_LINE_HEIGHT));
+	canvCtx.moveTo(0, deepen*(CANV_LINE_HEIGHT));
+	canvCtx.lineTo(0.7 * punctumWidth, - 0.7 * punctumWidth + deepen*(CANV_LINE_HEIGHT));
+	canvCtx.lineTo(2*0.7 * punctumWidth, 0 + deepen*(CANV_LINE_HEIGHT));
+	canvCtx.lineTo(0.7 * punctumWidth, + 0.7 * punctumWidth + deepen*(CANV_LINE_HEIGHT));
 	canvCtx.closePath();
 	canvCtx.fill();
+	canvCtx.restore();
 	
 	lastDrawnNote = name;
 	lastWasPunctum = true;
@@ -173,20 +201,28 @@ function drawPunctum() {
 function connectNotes(higher, lower) {
 	deepen_higher = altitude[higher];
 	deepen_lower = altitude[lower];
-	canvCtx.fillRect(notePosition + noteWidth - virgaWidth, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
+	
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.fillRect(noteWidth - virgaWidth, deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
+	canvCtx.restore();
 }
 
 function connectNotesWithPorrectus(higher, lower) {
 	deepen_higher = altitude[higher];
 	deepen_lower = altitude[lower];
 	//canvCtx.fillRect(notePosition + noteWidth - virgaWidth, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
 	canvCtx.beginPath();
-	canvCtx.moveTo(notePosition, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT)  - noteHeight/2);
-	canvCtx.lineTo(notePosition + porrectusLength, CANV_MARGIN_TOP + deepen_lower*(CANV_LINE_HEIGHT) - noteHeight/2);
-	canvCtx.lineTo(notePosition + porrectusLength, CANV_MARGIN_TOP + deepen_lower*(CANV_LINE_HEIGHT) + noteHeight/2);
-	canvCtx.lineTo(notePosition, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT)  + noteHeight/2);
+	canvCtx.moveTo(0, deepen_higher*(CANV_LINE_HEIGHT)  - noteHeight/2);
+	canvCtx.lineTo(porrectusLength, deepen_lower*(CANV_LINE_HEIGHT) - noteHeight/2);
+	canvCtx.lineTo(porrectusLength, deepen_lower*(CANV_LINE_HEIGHT) + noteHeight/2);
+	canvCtx.lineTo(0, deepen_higher*(CANV_LINE_HEIGHT)  + noteHeight/2);
 	canvCtx.closePath();
 	canvCtx.fill();
+	canvCtx.restore();
+	// todo should it be here?
 	notePosition += porrectusLength - noteWidth;
 }
 
@@ -194,6 +230,7 @@ function drawPause() {
 	canvCtx.fillRect(notePosition + pauseGap, CANV_MARGIN_TOP, virgaWidth, 3 * CANV_LINE_HEIGHT, pauseWidth);
 }
 
+// maybe the canvas translation functions should be here?
 function drawNote(name) {
 	if(name == '|') {
 		drawPause();
@@ -207,26 +244,24 @@ function drawNote(name) {
 	} else {
 		subnotes = name.split('-');
 		switch(subnotes.length) {
-		case 3:
-		//	break;
-		// if(porrectus) {
-		// break;
-		// }
-		case 2:
-		
 		default: // this is just application of "pes" and "clivis" rules - not cannonical, but understandable
 		for(var i = 0; i < subnotes.length; i++) {
-			//drawSingleNote(subnotes[i]);
 			if(i+1 < subnotes.length) {
 				if(altitude[subnotes[i+1]] > altitude[subnotes[i]]) {
-					if(i == 0) drawVirga(subnotes[i]);
-					if(i == 0 && subnotes.length > 2 && altitude[subnotes[i+2]] < altitude[subnotes[i+1]])
+					if(i == 0 || altitude[subnotes[i-1]] == altitude[subnotes[i]])
+						drawVirga(subnotes[i]);
+					if(subnotes.length - i > 2 && altitude[subnotes[i+2]] < altitude[subnotes[i+1]])
 						connectNotesWithPorrectus(subnotes[i], subnotes[i+1]);
 					else {
+						console.log('In here...');
 						drawSingleNote(subnotes[i]);
 						connectNotes(subnotes[i+1], subnotes[i]);
 					}
 					notePosition += (noteWidth - virgaWidth);
+				} else if(altitude[subnotes[i+1]] == altitude[subnotes[i]]) {
+					console.log('In here');
+					drawSingleNote(subnotes[i]);
+					notePosition += (noteWidth + bistrophaSpace);	
 				} else if(i < subnotes.length - 2) {
 						drawSingleNote(subnotes[i]);
 					connectNotes(subnotes[i+1], subnotes[i]);
@@ -243,33 +278,51 @@ function drawNote(name) {
 	}
 }
 
+var keyName;
+var keyLevel;
 // todo this function should reset all
 function drawKey(name, level) {
 	// td level might be Nan
+	
+	canvCtx.save();
+	canvCtx.translate(0, CANV_MARGIN_TOP);
+	
 	if(name == 'C') {
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP - CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth, noteHeight);
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP + CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth, noteHeight);
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP - CANV_LINE_HEIGHT / 2 - noteHeight/2, linkWidth, CANV_LINE_HEIGHT);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT - CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth, noteHeight);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth, noteHeight);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT  - CANV_LINE_HEIGHT / 2 - noteHeight/2, linkWidth, CANV_LINE_HEIGHT);
 		
 		for(i in altitudeBase) altitude[i] = altitudeBase[i] + (4-level);
 	} else if(name == 'F') {
-		canvCtx.fillRect(scoreMargin - noteWidth, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP - noteHeight/2, noteWidth - virgaWidth, noteHeight);
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP - CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth - virgaWidth, noteHeight);
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP + CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth - virgaWidth, noteHeight);
-		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_MARGIN_TOP - CANV_LINE_HEIGHT / 2 - noteHeight/2, linkWidth, CANV_LINE_HEIGHT * 2.5);
+		canvCtx.fillRect(scoreMargin - noteWidth, (4-level) * CANV_LINE_HEIGHT - noteHeight/2, noteWidth - virgaWidth, noteHeight);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT - CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth - virgaWidth, noteHeight);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT + CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth - virgaWidth, noteHeight);
+		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT - CANV_LINE_HEIGHT / 2 - noteHeight/2, linkWidth, CANV_LINE_HEIGHT * 2.5);
 
 		for(i in altitudeBase) altitude[i] = altitudeBase[i] + (2-level);
 	}
+	
+	canvCtx.restore();
+	keyName = name;
+	keyLevel = level;
 }
 
 function onDraw() {
 	var score = document.getElementById('score');
+	canvCtx.clearRect(0, 0, 800, 600);
 	drawLines();
 	notesDrawn = 0;
 	notes = score.value.split(' ');
 	drawLines();
 	notePosition = scoreMargin + 2 * (noteWidth + noteGap);
+	canvCtx.save();
 	for(var i = 0; i < notes.length; i++) {
+		if(notePosition > linePositionThreshold) {
+			notePosition = scoreMargin + 2 * (noteWidth + noteGap);
+			canvCtx.translate(0, INTER_LINE_GAP);
+			drawLines();
+			drawKey(keyName, keyLevel);
+		}
 			if(i == 0) {
 				if(notes[i].match(/^[C,F][1-4]$/) != null) {
 					drawKey(notes[i][0], parseInt(notes[i][1]));
@@ -280,7 +333,10 @@ function onDraw() {
 			}
 		drawNote(notes[i]);
 	}
+	canvCtx.restore();
 }
+
+// end drawing
 
 function onPlay() {
 	var score = document.getElementById('score');
@@ -322,7 +378,6 @@ console.log('javascript ...');
 				 }
 	// C4 is the default key
 	modes={
-		   //'test': "fa la DO | fa-la la-fa | fa-sol-la la * * | fa-DO-fa sol-la-si | si-la-sol | DO-sol-la",
 		   'I a': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol * * * |",
 		   'I b': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol |",
 		   'I c': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol la |",
@@ -331,8 +386,8 @@ console.log('javascript ...');
 		   'III b': "sol la-DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO si DO | DO DO DO la DO si-la |",
 		   'IV a': "la sol-la la la la la la sol sol | la la la la sol la si la | la la la la la sol la si-la sol-fa mi |",
 		   'IV b': "C3 RE DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE DO RE MI RE | RE RE RE RE RE DO RE MI DO si-la |",
-		   'V':   "C3 fa la DO DO DO DO DO DO DO DO la la | DO DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
-		   'VI' : "fa sol-la la la la la la la la sol sol | la la la la la sa la sol la | la la la la la la la fa fa-la sol fa |",
+		   'V':   "C3 fa la DO DO DO DO DO DO la la | DO DO DO DO DO DO DO RE DO | DO DO DO DO DO DO RE si DO la |",
+		   'VI' : "fa sol-la la la  la la la sol sol | la la la la la sa la sol la | la la la la la la la fa fa-la sol fa |",
 		   'VII a': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
 		   'VII b': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
 		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
@@ -344,6 +399,7 @@ console.log('javascript ...');
 	sine = audioCtx.createOscillator();
 	sine.connect(audioCtx.destination);
 	document.getElementById('buttons').innerHTML += "Notes: ";
+	// todo fix below, this should not work like this!
 	for(var i of Object.keys(frequencies)) {
 		document.getElementById('buttons').innerHTML +=
 		('<button onClick="score.value=score.value+\'' + i + ' \';">' + i + '</button>');
