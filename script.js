@@ -1,9 +1,10 @@
 // BUGS:
-// pause to be added!
+// pause to be rectified
 // the length of double notes!
 // space gaps after double notes!
-// P1 !!!! bemol in compound notes!
-// lowered notes!
+// pes subbipuncti support!
+// phrase opposed to long pause support
+// todo don't draw second b-flat in phrase , distinguish phrase and simple pause
 
 
 // punctum (eg. "fa") - done
@@ -12,10 +13,10 @@
 
 // torculus (the middle note is the highest)
 // porrectus (the middle note is the lowest) - improve
-// climacus - implemented other way round... fix the *** notes!
+// climacus - implemented
 // scandicus - done
 
-// todo don't draw second bemol in phrase , distinguish phrase and simple pause
+
 // http://www.lphrc.org/Chant/ - todo implement all notes
 
 // multiline!
@@ -54,22 +55,30 @@ function playSingleNote(name, length, gap) {
 }
 
 var lastScheduledNote;
-var noteBelowMap = {'MI' : 'RE', 'RE' : 'DO', 'DO' : 'si', 'si' : 'la', 'la' : 'sol',  'sol' : 'fa',
-                    'fa' : 'mi', 'mi': 're', 're' : 'do', 'do' : '_si'};
+// todo sometimes note below do might be sa under active flat
+var noteBelowMap = {'FA' : 'MI', 'MI' : 'RE', 'RE' : 'DO', 'DO' : 'si', 'si' : 'la', 'la' : 'sol',  'sol' : 'fa',
+                    'fa' : 'mi', 'mi': 're', 're' : 'do', 'do' : '_si', '_si' : '_la'};
 
+// todo should puncti be not translated up till here?
 function playNote(name) {
 	if(name == '*') {
 		return playNote(noteBelowMap[lastScheduledNote], soundLength, 0);
 	}
-	if(!name.includes('-')) {
+	if(!name.includes('-') && !name.includes('*')) {
 		playSingleNote(name, soundLength, soundGap);
 	} else {
-		names = name.split('-');
+		var name_r = name.replace(/\*/g, '-\*');
+		var names = name_r.split('-');
 		for(var i = 0; i < names.length; i++) {
-			playSingleNote(names[i], soundLength, 0);			
+			if(names[i] == '*') {
+				playSingleNote(noteBelowMap[lastScheduledNote], soundLength, 0);			
+				lastScheduledNote = noteBelowMap[lastScheduledNote];				
+			} else {
+				playSingleNote(names[i], soundLength, 0);			
+				lastScheduledNote = names[i];
+			}
 		}
 	}
-	lastScheduledNote = name;
 }
 
 // todo away with globals
@@ -95,9 +104,12 @@ var noteGap = 10;
 var scoreMargin = 20;
 var notePosition = 0;
 
-var bemolAdvance = 10;
+var bFlatAdvance = 10;
 
-var bemolStartRelativeFourthLine = -5;
+var bFlatStartRelativeFourthLine = -5;
+var bFlatDrawnAlready = false;
+
+var firstInclinatumGap = 3;
 
 var linePositionThreshold = 750;
 
@@ -107,7 +119,6 @@ function initCanvas() {
 	canvCtx = canv.getContext('2d');
 }
 
-// todo multiline support
 function drawLines() {
 	canvCtx.beginPath();
 	for(var i = 0; i < 4; i++) {
@@ -122,21 +133,25 @@ function drawLines() {
 	canvCtx.closePath();
 }
 
-var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
-var altitude = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5, 'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5};
+var altitudeBase = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5,
+                    'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5,
+					'_si' : 4, '_sa' : 4, '_la' : 4.5};
+var altitude = {'FA' : -1.5, 'MI' : -1, 'RE' : -0.5,
+                'DO' : 0, 'sa' : 0.5, 'si' : 0.5, 'la' : 1, 'sol' : 1.5, 'fa' : 2, 'mi': 2.5, 're' : 3, 'do' : 3.5,
+				 '_si' : 4, '_sa' : 4, '_la' : 4.5};
 var lastDrawnNote;
 
-// todo don't draw second bemol in phrase
-function drawBemol() {
-	var bemolStrokes = [[0,10], [5, 3], [0, -3], [-5, -3]];
+// todo don't draw second B-flat in phrase
+function drawBFlat() {
+	var bFlatStrokes = [[0,10], [5, 3], [0, -3], [-5, -3]];
 	
 	canvCtx.save();
 	canvCtx.beginPath();
 	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
-	var pt = [0, bemolStartRelativeFourthLine];
+	var pt = [0, bFlatStartRelativeFourthLine];
 	canvCtx.moveTo(pt[0], pt[1]);
-	for(var i = 0; i < bemolStrokes.length; i++) {
-		pt[0] += bemolStrokes[i][0]; pt[1] += bemolStrokes[i][1];
+	for(var i = 0; i < bFlatStrokes.length; i++) {
+		pt[0] += bFlatStrokes[i][0]; pt[1] += bFlatStrokes[i][1];
 		canvCtx.lineTo(pt[0], pt[1]);
 	}
 	canvCtx.closePath();
@@ -145,18 +160,24 @@ function drawBemol() {
 	canvCtx.restore();
 
     // todo should it be here?
-	notePosition += bemolAdvance;
+	notePosition += bFlatAdvance;
+	bFlatDrawnAlready = true;
 }
 
 // for now let's say 'sa' is not a single note ;)
+
 function drawSingleNote(name) {
 	deepen = altitude[name];
 	
 	canvCtx.save();
 	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
 	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
-	if(deepen < -0.5 || deepen > 3.5) {
-	canvCtx.fillRect(-(additionalLineWidth - noteWidth) / 2, deepen*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
+	// to the rule, no more than one  additional line is permitted above and below
+	if(deepen < -0.5) {
+		canvCtx.fillRect(-(additionalLineWidth - noteWidth) / 2, (-1)*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
+	}
+	else if(deepen > 3.5) {
+	canvCtx.fillRect(-(additionalLineWidth - noteWidth) / 2, 4*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
 	}
 	canvCtx.restore();
 	notesDrawn++;
@@ -164,11 +185,19 @@ function drawSingleNote(name) {
 	lastWasPunctum = false;
 }
 
-function drawVirga(name) {
+function drawLeftVirga(name) {
 	deepen = altitude[name];
 	canvCtx.save();
 	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
 	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
+	canvCtx.restore();
+}
+
+function drawRightVirga(name) {
+	deepen = altitude[name];
+	canvCtx.save();
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.fillRect(noteWidth - virgaWidth, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
 	canvCtx.restore();
 }
 
@@ -178,7 +207,7 @@ var lastWasPunctum = false; // todo - the puncti treated differently...
 function drawPunctum() {
 	console.log('draw p~tm');
 	var name = noteBelowMap[lastDrawnNote];
-	console.log('draw note: ' + name);
+//	console.log('draw note: ' + name);
 
 
 	deepen = altitude[name];
@@ -234,25 +263,34 @@ function drawPause() {
 // maybe the canvas translation functions should be here?
 function drawNote(name) {
 	if(name.includes('sa'))
-		drawBemol(); // todo still need to implement the one-bemol-in-phrase rule
+		drawBFlat(); // todo still need to implement the one-bFlat-in-phrase rule
 	if(name == '|') {
 		drawPause();
 		notePosition += (pauseGap + pauseWidth);
 	}
 	if(name == '*') {
-		drawPunctum();
-	} else if(!name.includes('-')) {
+		drawPunctum();    // should not go as a single note...
+	} else if(!name.includes('-') && !name.includes('*')) {
 		drawSingleNote(name);
 		notePosition += (noteWidth + noteGap);
 	} else {
-		subnotes = name.split('-');
+		// some trick to extract * as single notes
+		name_r = name.replace(/\*/g, '-\*');
+		subnotes = name_r.split('-'); // todo we might have '*' as well...
+		//var lastDrawnNote;
 		switch(subnotes.length) {
-		default: // this is just application of "pes" and "clivis" rules - not cannonical, but understandable
+		default: // this is just application of "pes" and "clivis" rules - not canonical, but understandable
 		for(var i = 0; i < subnotes.length; i++) {
-			if(i+1 < subnotes.length) {
-				if(altitude[subnotes[i+1]] > altitude[subnotes[i]]) {
+				if(subnotes[i] == '*')
+					drawPunctum();
+				else if(i+1 < subnotes.length) {
+				if(subnotes[i] != '*' && subnotes[i+1] == '*') {
+					drawRightVirga(subnotes[i]);
+					drawSingleNote(subnotes[i]);
+					notePosition += (noteWidth + firstInclinatumGap);
+				} else if(altitude[subnotes[i+1]] > altitude[subnotes[i]]) {
 					if(i == 0 || altitude[subnotes[i-1]] == altitude[subnotes[i]])
-						drawVirga(subnotes[i]);
+						drawLeftVirga(subnotes[i]);
 					if(subnotes.length - i > 2 && altitude[subnotes[i+2]] < altitude[subnotes[i+1]])
 						connectNotesWithPorrectus(subnotes[i], subnotes[i+1]);
 					else {
@@ -270,11 +308,12 @@ function drawNote(name) {
 					connectNotes(subnotes[i+1], subnotes[i]);
 					notePosition += (noteWidth - virgaWidth);
 			    } else {
-						drawSingleNote(subnotes[i]);
+					drawSingleNote(subnotes[i]);
 					connectNotes(subnotes[i], subnotes[i+1]);
 				}
 			} else 
-				drawSingleNote(subnotes[i]);
+				drawSingleNote(subnotes[i]);		// todo is this necessary?
+			//lastDrawnNote = subnotes[i];
 		}
 		}
 		notePosition += (noteWidth + noteGap);
@@ -365,7 +404,7 @@ function onKeyChangeClicked(name) {
 }
 
 function generateTests() {
-	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
+	var singleNotes = ['_la', '_sa', '_si', 'do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
 	var modes = {};
 	
 	// single notes test
@@ -375,6 +414,8 @@ function generateTests() {
 		line += singleNotes[i];
 	}
 	modes["single notes test"] = line;
+
+	singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
 
     // bistropha test
 	line="";
@@ -456,12 +497,54 @@ function generateTests() {
 	modes["some porrecti test"] = line;
 	line = "";
 
+	// single subpuncti test
+	var singleNotes = [ 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += (singleNotes[i] +'*');
+	}
+	modes["single subpuncti (non-mandatory)"] = line;
+
+	// climaci test
+	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += (singleNotes[i] +'**');
+	}
+	modes["climaci test"] = line;
+
+	// subtripuncti test
+	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
+	line="";
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' ';
+		line += (singleNotes[i] +'***');
+	}
+	modes["subtripuncti test"] = line;
+
+	line="";
+	var singleNotes = ['fa', 'sol', 'la', 'sa', 'DO'];
+	for(var i = 0; i < singleNotes.length; i++) {
+		if(i != 0) line += ' | ';
+		for(var j = i+1; j < singleNotes.length; j++) {
+			if(j != 0) line += ' ';			
+			line += (singleNotes[i] + '-' + singleNotes[j] + '**');
+		}
+	}
+	modes["pes subbipuncti test"] = line;
 	return modes;
+	
 }
 
 function load() {
 console.log('javascript ...');
-    frequencies={'do' : 261,
+    frequencies={
+		         '_la' : 220,
+				 '_sa' : 233,
+		         '_si' : 247,
+		         'do' : 261,
 				 're' : 293,
 				 'mi' : 330,
 				 'fa' : 349,
@@ -476,7 +559,7 @@ console.log('javascript ...');
 				 }
 	// C4 is the default key
 	modes={
-		   'I a': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol * * * |",
+		   'I a': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol*** |",
 		   'I b': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol-la sol |",
 		   'I c': "fa sol-la la la la la la la sol sol | la la la la la sa la sol la | la la la la sol fa sol la |",
 		   'II': "F3 do re fa fa fa fa fa fa re re | fa fa fa fa fa fa sol fa | fa fa fa fa fa fa mi do re |",
@@ -492,7 +575,7 @@ console.log('javascript ...');
 		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
 		   };
 		
-		if(window.location.href.includes('user=OPs&password=panskipies')) { // ;-)
+		if(window.location.href.includes('user=OPs') && window.location.href.includes('password=panskipies')) { // ;-)
 			modes = generateTests();
 		}
 	
