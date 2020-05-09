@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+ <html>
+   <head>
+    <meta charset="utf-8">
+    <title> Gregorian mode player </title>
+	<script src="tests.js"></script>
+	<script src="script.js"></script>
+   </head>
+<body onload="load();">
+   <div id="buttons">
+   </div>
+    Or manually edit the music line: </br><input id="score" type="text" style="width: 800px;"></input> <!-- todo onChange -->
+	<button id="play" onClick="onPlay();">Play!</button>
+	<br>
+   <canvas id="canv" width="800" height="600" bgcolor="lime">
+   The browser does not support canvas
+   </canvas>
+	<br>The notes are: do re mi fa sol la si DO RE MI FA
+	<br>The keys are: C1, C2, C3, C4 ("do" key), F1, F2, F3, F4 ("fa" key). Default is "do" on 4th line (C4).
+   <br>
+</html>
