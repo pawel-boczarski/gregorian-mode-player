@@ -6,6 +6,7 @@
 // phrase opposed to long pause support
 // todo don't draw second b-flat in phrase , distinguish phrase and simple pause
 
+// make all Salve Regina notes draw properly
 
 // punctum (eg. "fa") - done
 // pes (eg. "fa"-"sol") - done
@@ -16,20 +17,29 @@
 // climacus - implemented
 // scandicus - done
 
-
 // http://www.lphrc.org/Chant/ - todo implement all notes
+// todo show memory playback progress
 
-// multiline!
-
+// note drawing - should record (playback position, 
+// catch exceptions on note playing callbacks
 
 
 var currentTimeout = 0;
 var soundLength = 400;
 var soundGap = 100;
+var notesToBePlayed = 0;
 
-function playSingleNote(name, length, gap) {
+
+var neumesWithPosition = [];
+var onNotePlayStartCb = undefined;
+var onNotePlayStopCb = undefined;
+var dontMakeMeDeafCoef = 0.15;
+
+
+function playSingleNote(name, length, gap, onPlayStart, onPlayStop) {
 	if(!(name in frequencies) && name != '|') return;
 	
+	notesToBePlayed++;
 	setTimeout(
 		function() {
 			var gain_values = [ 1.0, 0.5, 0.8, 0.3, 0.1, 0.1, 0.05 ];
@@ -39,15 +49,16 @@ function playSingleNote(name, length, gap) {
 			for(var i = 0; i < gain_values.length; i++) {
 				sines[i] = audioCtx.createOscillator();
 				gains[i] = audioCtx.createGain();
-				gains[i].gain.value = gain_values[i];
+				gains[i].gain.value = gain_values[i] * dontMakeMeDeafCoef;
 				//gains[i].gain.setValueAtTime(gain_values[i], audioCtx.currentTime);
 				//gains[i].gain.linearRampToValueAtTime(0.3 * gain_values[i], audioCtx.currentTime + soundLength);
 				sines[i].connect(gains[i]).connect(audioCtx.destination);
-				sines[i].frequency.value = frequencies[name] * (i+1);
+				if(onPlayStart) onPlayStart();
+				sines[i].frequency.value = isNaN(frequencies[name]) ? 0 : frequencies[name] * (i+1);
 			}
 			console.log('frequency : ' + frequencies[name]);
 			for(var i = 0; i < gain_values.length; i++) sines[i].start();
-			setTimeout(function() { for(var i = 0; i < gain_values.length; i++) sines[i].stop(); }, soundLength);
+			setTimeout(function() { for(var i = 0; i < gain_values.length; i++) sines[i].stop(); notesToBePlayed--; if(onPlayStop) onPlayStop(); }, soundLength);
 		},
 	currentTimeout);
 	currentTimeout += length;
@@ -60,21 +71,23 @@ var noteBelowMap = {'FA' : 'MI', 'MI' : 'RE', 'RE' : 'DO', 'DO' : 'si', 'si' : '
                     'fa' : 'mi', 'mi': 're', 're' : 'do', 'do' : '_si', '_si' : '_la'};
 
 // todo should puncti be not translated up till here?
-function playNote(name) {
+function playNote(name, position, line) {
 	if(name == '*') {
 		return playNote(noteBelowMap[lastScheduledNote], soundLength, 0);
 	}
 	if(!name.includes('-') && !name.includes('*')) {
-		playSingleNote(name, soundLength, soundGap);
+		playSingleNote(name, soundLength, soundGap, function() {onNotePlayStartCb(name, position, line);}, function() {onNotePlayStopCb(name, position, line);});
 	} else {
 		var name_r = name.replace(/\*/g, '-\*');
 		var names = name_r.split('-');
 		for(var i = 0; i < names.length; i++) {
+			var cbStart = (i == 0) ? function() {onNotePlayStartCb(name, position, line);} : undefined;
+			var cbStop = (i == names.length - 1) ? function() {onNotePlayStopCb(name, position, line);} : undefined;
 			if(names[i] == '*') {
-				playSingleNote(noteBelowMap[lastScheduledNote], soundLength, 0);			
+				playSingleNote(noteBelowMap[lastScheduledNote], soundLength, 0, cbStart, cbStop);			
 				lastScheduledNote = noteBelowMap[lastScheduledNote];				
 			} else {
-				playSingleNote(names[i], soundLength, 0);			
+				playSingleNote(names[i], soundLength, 0, cbStart, cbStop);			
 				lastScheduledNote = names[i];
 			}
 		}
@@ -103,14 +116,11 @@ var pauseWidth = 1;
 var noteGap = 10;
 var scoreMargin = 20;
 var notePosition = 0;
-
+var currentLineNumber = 0;
 var bFlatAdvance = 10;
-
 var bFlatStartRelativeFourthLine = -5;
 var bFlatDrawnAlready = false;
-
 var firstInclinatumGap = 3;
-
 var linePositionThreshold = 750;
 
 
@@ -123,7 +133,7 @@ function drawLines() {
 	canvCtx.beginPath();
 	for(var i = 0; i < 4; i++) {
 		canvCtx.save();
-		canvCtx.translate(0, CANV_LINE_HEIGHT*i + CANV_MARGIN_TOP);
+		canvCtx.translate(0, CANV_LINE_HEIGHT*i + CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 		canvCtx.moveTo(10, 0);
 		canvCtx.lineTo(800, 0);
 		canvCtx.stroke();
@@ -147,7 +157,7 @@ function drawBFlat() {
 	
 	canvCtx.save();
 	canvCtx.beginPath();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	var pt = [0, bFlatStartRelativeFourthLine];
 	canvCtx.moveTo(pt[0], pt[1]);
 	for(var i = 0; i < bFlatStrokes.length; i++) {
@@ -170,9 +180,8 @@ function drawSingleNote(name) {
 	deepen = altitude[name];
 	
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, noteWidth, noteHeight);
-	// to the rule, no more than one  additional line is permitted above and below
 	if(deepen < -0.5) {
 		canvCtx.fillRect(-(additionalLineWidth - noteWidth) / 2, (-1)*(CANV_LINE_HEIGHT) - 1, additionalLineWidth, 2);
 	}
@@ -188,7 +197,7 @@ function drawSingleNote(name) {
 function drawLeftVirga(name) {
 	deepen = altitude[name];
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.fillRect(0, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
 	canvCtx.restore();
 }
@@ -196,7 +205,7 @@ function drawLeftVirga(name) {
 function drawRightVirga(name) {
 	deepen = altitude[name];
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.fillRect(noteWidth - virgaWidth, deepen*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, virgaHeight);
 	canvCtx.restore();
 }
@@ -213,7 +222,7 @@ function drawPunctum() {
 	deepen = altitude[name];
 
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.beginPath();
 	canvCtx.moveTo(0, deepen*(CANV_LINE_HEIGHT));
 	canvCtx.lineTo(0.7 * punctumWidth, - 0.7 * punctumWidth + deepen*(CANV_LINE_HEIGHT));
@@ -233,7 +242,7 @@ function connectNotes(higher, lower) {
 	deepen_lower = altitude[lower];
 	
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.fillRect(noteWidth - virgaWidth, deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
 	canvCtx.restore();
 }
@@ -243,7 +252,7 @@ function connectNotesWithPorrectus(higher, lower) {
 	deepen_lower = altitude[lower];
 	//canvCtx.fillRect(notePosition + noteWidth - virgaWidth, CANV_MARGIN_TOP + deepen_higher*(CANV_LINE_HEIGHT) - noteHeight/2, virgaWidth, (deepen_lower-deepen_higher)*CANV_LINE_HEIGHT);	
 	canvCtx.save();
-	canvCtx.translate(notePosition, CANV_MARGIN_TOP);
+	canvCtx.translate(notePosition, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	canvCtx.beginPath();
 	canvCtx.moveTo(0, deepen_higher*(CANV_LINE_HEIGHT)  - noteHeight/2);
 	canvCtx.lineTo(porrectusLength, deepen_lower*(CANV_LINE_HEIGHT) - noteHeight/2);
@@ -261,7 +270,8 @@ function drawPause() {
 }
 
 // maybe the canvas translation functions should be here?
-function drawNote(name) {
+// todo this function should be of reuse for highlighting
+function drawNeume(name) {
 	if(name.includes('sa'))
 		drawBFlat(); // todo still need to implement the one-bFlat-in-phrase rule
 	if(name == '|') {
@@ -278,8 +288,6 @@ function drawNote(name) {
 		name_r = name.replace(/\*/g, '-\*');
 		subnotes = name_r.split('-'); // todo we might have '*' as well...
 		//var lastDrawnNote;
-		switch(subnotes.length) {
-		default: // this is just application of "pes" and "clivis" rules - not canonical, but understandable
 		for(var i = 0; i < subnotes.length; i++) {
 				if(subnotes[i] == '*')
 					drawPunctum();
@@ -315,7 +323,6 @@ function drawNote(name) {
 				drawSingleNote(subnotes[i]);		// todo is this necessary?
 			//lastDrawnNote = subnotes[i];
 		}
-		}
 		notePosition += (noteWidth + noteGap);
 	}
 }
@@ -327,7 +334,7 @@ function drawKey(name, level) {
 	// td level might be Nan
 	
 	canvCtx.save();
-	canvCtx.translate(0, CANV_MARGIN_TOP);
+	canvCtx.translate(0, CANV_MARGIN_TOP + currentLineNumber * INTER_LINE_GAP);
 	
 	if(name == 'C') {
 		canvCtx.fillRect(scoreMargin, (4-level) * CANV_LINE_HEIGHT - CANV_LINE_HEIGHT / 2 - noteHeight/2, noteWidth, noteHeight);
@@ -351,9 +358,17 @@ function drawKey(name, level) {
 
 function onDraw() {
 	var score = document.getElementById('score');
+	currentLineNumber = 0;
+	
+	if(notesToBePlayed > 0) {
+		console.log('Notes to be played: ' + notesToBePlayed);
+		return;
+	}
+
 	canvCtx.clearRect(0, 0, 800, 600);
 	drawLines();
 	notesDrawn = 0;
+	neumesWithPosition = [];
 	notes = score.value.split(' ');
 	drawLines();
 	notePosition = scoreMargin + 2 * (noteWidth + noteGap);
@@ -361,7 +376,8 @@ function onDraw() {
 	for(var i = 0; i < notes.length; i++) {
 		if(notePosition > linePositionThreshold) {
 			notePosition = scoreMargin + 2 * (noteWidth + noteGap);
-			canvCtx.translate(0, INTER_LINE_GAP);
+			//canvCtx.translate(0, INTER_LINE_GAP);   // todo this translation will break a lot when replaying
+			currentLineNumber++;
 			drawLines();
 			drawKey(keyName, keyLevel);
 		}
@@ -373,7 +389,8 @@ function onDraw() {
 				else
 					drawKey('C', 4);
 			}
-		drawNote(notes[i]);
+		neumesWithPosition.push([notes[i], notePosition, currentLineNumber]);
+		drawNeume(notes[i]);
 	}
 	canvCtx.restore();
 }
@@ -384,8 +401,8 @@ function onPlay() {
 	var score = document.getElementById('score');
 	currentTimeout = 0;
 	notes = score.value.split(' ');
-	for(i in notes) {
-		playNote(notes[i]);
+	for(i in notes) { // todo...
+		playNote(neumesWithPosition[i][0], neumesWithPosition[i][1], neumesWithPosition[i][2]); // todo fix this...
 	}
 }
 
@@ -403,139 +420,34 @@ function onKeyChangeClicked(name) {
 	score.value = notes.join(' ');
 }
 
-function generateTests() {
-	var singleNotes = ['_la', '_sa', '_si', 'do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
-	var modes = {};
-	
-	// single notes test
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += singleNotes[i];
-	}
-	modes["single notes test"] = line;
+function notePlayStartCb(neumeName, neumePos, neumeLineNo) {
+	console.log('Neume playing start :' + neumeName + ' x pos: ' + neumePos + 'line: ' + currentLineNumber);
+	canvCtx.save();
+	var notePositionSave = notePosition;
+	var currentLineNumberSave = currentLineNumber;
+	notePosition = neumePos;
+	currentLineNumber = neumeLineNo;
+	canvCtx.fillStyle = 'red';
+	canvCtx.strokeStyle = 'red';
+	drawNeume(neumeName);
+	canvCtx.restore();
+	notePosition = notePositionSave;
+	currentLineNumber = currentLineNumberSave;
+}
 
-	singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
-
-    // bistropha test
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += (singleNotes[i] + '-' + singleNotes[i]);
-	}
-	modes["bistropha test"] = line;
-	
-	// tristropha test
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += (singleNotes[i] + '-' + singleNotes[i] + '-' + singleNotes[i]);
-	}
-	modes["tristropha test"] = line;
-	
-	// podatus test
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' | ';
-		for(var j = i+1; j < singleNotes.length; j++) {
-			if(j != 0) line += ' ';			
-			line += (singleNotes[i] + '-' + singleNotes[j]);
-		}
-	}
-	modes["podatus test"] = line;
-	
-	// podatus test
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' | ';
-		for(var j = i+1; j < singleNotes.length; j++) {
-			if(j != 0) line += ' ';			
-			line += (singleNotes[j] + '-' + singleNotes[i]);
-		}
-	}
-	modes["clivis test"] = line;
-	
-	singleNotes = ['fa', 'sol', 'la', 'sa', 'DO'];
-	line = "";
-	// some scandici test
-	for(var i = 0; i < singleNotes.length; i++) {
-		for(var j = i+1; j < singleNotes.length; j++) {
-				if(j != i+1) line += ' ';
-			for(var k = j+1; k < singleNotes.length; k++) {
-				if(k != j+1) line += ' ';
-				line += (singleNotes[i] + '-' + singleNotes[j] + '-' + singleNotes[k]);
-			}
-		}
-	}
-	
-	modes["some scandici test"] = line;
-	line = "";
-	// some torculi test
-	for(var i = 0; i < singleNotes.length; i++) {
-		for(var j = i; j < singleNotes.length; j++) {
-				if(j != i) line += ' ';
-			for(var k = j+1; k < singleNotes.length; k++) {
-				if(k != j+1) line += ' ';
-				line += (singleNotes[i] + '-' + singleNotes[k] + '-' + singleNotes[j]);
-			}
-		}
-	}
-	
-	modes["some torculi test"] = line;
-	line = "";
-	// some porrecti test
-	for(var i = 0; i < singleNotes.length; i++) {
-		for(var j = i+1; j < singleNotes.length; j++) {
-				if(j != i+1) line += ' ';
-			for(var k = j; k < singleNotes.length; k++) {
-				line += ' ';
-				line += (singleNotes[j] + '-' + singleNotes[i] + '-' + singleNotes[k]);
-			}
-		}
-	}
-	
-	modes["some porrecti test"] = line;
-	line = "";
-
-	// single subpuncti test
-	var singleNotes = [ 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += (singleNotes[i] +'*');
-	}
-	modes["single subpuncti (non-mandatory)"] = line;
-
-	// climaci test
-	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += (singleNotes[i] +'**');
-	}
-	modes["climaci test"] = line;
-
-	// subtripuncti test
-	var singleNotes = ['do', 're', 'mi', 'fa', 'sol', 'la', 'sa', 'si', 'DO', 'RE', 'MI', 'FA'];
-	line="";
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' ';
-		line += (singleNotes[i] +'***');
-	}
-	modes["subtripuncti test"] = line;
-
-	line="";
-	var singleNotes = ['fa', 'sol', 'la', 'sa', 'DO'];
-	for(var i = 0; i < singleNotes.length; i++) {
-		if(i != 0) line += ' | ';
-		for(var j = i+1; j < singleNotes.length; j++) {
-			if(j != 0) line += ' ';			
-			line += (singleNotes[i] + '-' + singleNotes[j] + '**');
-		}
-	}
-	modes["pes subbipuncti test"] = line;
-	return modes;
-	
+function notePlayStopCb(neumeName, neumePos, neumeLineNo) {
+	console.log('Neume playing stop : ' + neumeName + ' x pos: ' + neumePos + 'line: ' + currentLineNumber);
+	canvCtx.save();
+	var notePositionSave = notePosition;
+	var currentLineNumberSave = currentLineNumber;
+	notePosition = neumePos;
+	currentLineNumber = neumeLineNo;
+	canvCtx.fillStyle = 'black';
+	canvCtx.strokeStyle = 'black';
+	drawNeume(neumeName);
+	canvCtx.restore();
+	notePosition = notePositionSave;
+	currentLineNumber = currentLineNumberSave;
 }
 
 function load() {
@@ -572,11 +484,13 @@ console.log('javascript ...');
 		   'VII a': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-la |",
 		   'VII b': "C3 DO DO-RE RE RE RE RE RE RE DO DO | RE RE RE RE RE RE FA MI RE MI | RE RE RE RE RE RE MI RE DO si-RE |",
 		   'VIIIa': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO si DO la sol |",
-		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |"
+		   'VIIIb': "sol la DO DO DO DO DO DO la la | DO DO DO DO DO DO RE DO | DO DO DO DO la DO RE DO |",
+		   'Salve Regina' : "la-la-sol-la re | la-la-sol fa**-mi-fa-sol-fa mi-re | do re fa sol fa sol-la re-mi-fa*** re"
+		   //"la-la-sol-la re | la-la-sol fa**-mi-fa-sol-fa mi-re | do re fa sol fa sol-la re-mi-fa*** re | la la-sol-la re | la-la-sol fa**-mi-fa-sol-fa mi-re | do re fa sol-fa-sol-la re-mi-fa*** re | re fa-sol la | sol-sol-fa-sol-la mi | sol fa mi-re-sol | do re fa mi** re | re fa-sol la | DO sol  la***-sol la | re fa sol re fa** re | re re-do-fa sol-la sol fa-mi fa-sol fa*** re | "
 		   };
 		
 		if(window.location.href.includes('user=OPs') && window.location.href.includes('password=panskipies')) { // ;-)
-			modes = generateTests();
+			modes = gmp_tests.generateTests();
 		}
 	
 	audioCtx = new (window.AudioContext || window.webkitAudioContext);
@@ -606,6 +520,9 @@ console.log('javascript ...');
 	console.log(document.getElementById('mode').innerHTML);
 	
 	document.getElementById('mode').setAttribute('onchange', "m=document.getElementById('mode').value; document.getElementById('score').value = modes[m]; onDraw();");
+
+	onNotePlayStartCb = notePlayStartCb;
+	onNotePlayStopCb = notePlayStopCb;	
 
 	initCanvas();
 	drawLines();
